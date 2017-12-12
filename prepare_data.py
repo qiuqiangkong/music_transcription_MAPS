@@ -1,3 +1,9 @@
+"""
+Summary:  Prepare data & util functions. 
+Author:   Qiuqiang Kong
+Created:  2017.12.12
+Modified: - 
+"""
 import numpy as np
 import argparse
 from scipy import signal
@@ -15,6 +21,7 @@ from sklearn import preprocessing
 
 import config as cfg
 
+
 def create_folder(fd):
     if not os.path.exists(fd):
         os.makedirs(fd)
@@ -27,6 +34,16 @@ def get_filename(path):
 
 ### Audio & feature related. 
 def read_audio(path, target_fs=None):
+    """Read 1 dimension audio sequence from given path. 
+    
+    Args:
+      path: string, path of audio. 
+      target_fs: int, resampling rate. 
+      
+    Returns:
+      audio: 1 dimension audio sequence. 
+      fs: sampling rate of audio. 
+    """
     (audio, fs) = soundfile.read(path)
     if audio.ndim > 1:
         audio = np.mean(audio, axis=1)
@@ -36,9 +53,27 @@ def read_audio(path, target_fs=None):
     return audio, fs
     
 def write_audio(path, audio, sample_rate):
+    """Write audio sequence to .wav file. 
+    
+    Args:
+      path: string, path to write out .wav file. 
+      data: ndarray, audio sequence to write out. 
+      sample_rate: int, sample rate to write out. 
+      
+    Returns: 
+      None. 
+    """
     soundfile.write(file=path, data=audio, samplerate=sample_rate)
     
 def spectrogram(audio):
+    """Calculate magnitude spectrogram of an audio sequence. 
+    
+    Args: 
+      audio: 1darray, audio sequence. 
+      
+    Returns:
+      x: ndarray, spectrogram (n_time, n_freq)
+    """
     n_window = cfg.n_window
     n_overlap = cfg.n_overlap
     
@@ -56,6 +91,14 @@ def spectrogram(audio):
     return x
     
 def logmel(audio):
+    """Calculate log Mel spectrogram of an audio sequence. 
+    
+    Args: 
+      audio: 1darray, audio sequence. 
+      
+    Returns:
+      x: ndarray, log Mel spectrogram (n_time, n_freq)
+    """
     n_window = cfg.n_window
     n_overlap = cfg.n_overlap
     fs = cfg.sample_rate
@@ -82,13 +125,232 @@ def logmel(audio):
     x = np.log(x + 1e-8)
     x = x.astype(np.float32)
     return x
-    
-###
 
+def calculate_features(args): 
+    """Calculate and write out features & ground truth notes of all songs in MUS 
+    directory of all pianos. 
+    """
+    dataset_dir = args.dataset_dir
+    workspace = args.workspace
+    feat_type = args.feat_type
+    fs = cfg.sample_rate
+    tr_pianos = cfg.tr_pianos
+    te_pianos = cfg.te_pianos
+    pitch_bgn = cfg.pitch_bgn
+    pitch_fin = cfg.pitch_fin
+    
+    out_dir = os.path.join(workspace, "features", feat_type)
+    create_folder(out_dir)
+    
+    # Calculate features for all 9 pianos. 
+    cnt = 0
+    for piano in tr_pianos + te_pianos:
+        audio_dir = os.path.join(dataset_dir, piano, "MUS")
+        wav_names = [na for na in os.listdir(audio_dir) if na.endswith('.wav')]
+        
+        for wav_na in wav_names:
+            # Read audio. 
+            bare_na = os.path.splitext(wav_na)[0]
+            wav_path = os.path.join(audio_dir, wav_na)
+            (audio, _) = read_audio(wav_path, target_fs=fs)
+            
+            # Calculate feature. 
+            if feat_type == "spectrogram":
+                x = spectrogram(audio)
+            elif feat_type == "logmel":
+                x = logmel(audio)
+            else:
+                raise Exception("Error!")
+            
+            # Read piano roll from txt file. 
+            (n_time, n_freq) = x.shape
+            txt_path = os.path.join(audio_dir, "%s.txt" % bare_na)
+            roll = txt_to_midi_roll(txt_path, max_fr_len=n_time)    # (n_time, 128)
+            y = roll[:, pitch_bgn : pitch_fin]      # (n_time, 88)
+            
+            # Write out data. 
+            data = [x, y]
+            out_path = os.path.join(out_dir, "%s.p" % bare_na)
+            print(cnt, out_path, x.shape, y.shape)
+            cPickle.dump(data, open(out_path, 'wb'), protocol=cPickle.HIGHEST_PROTOCOL)
+            cnt += 1
+        
+### Pack features. 
+def is_in_pianos(na, list_of_piano):
+    """E.g., na="MAPS_MUS-alb_esp2_SptkBGCl.wav", list_of_piano=['SptkBGCl', ...]
+    then return True. 
+    """
+    for piano in list_of_piano:
+        if piano in na:
+            return True
+    return False
+            
+def pack_features(args):
+    """Pack already calculated features and write out to a big file, for 
+    speeding up later loading. 
+    """
+    workspace = args.workspace
+    feat_type = args.feat_type
+    tr_pianos = cfg.tr_pianos
+    te_pianos = cfg.te_pianos
+    
+    fe_dir = os.path.join(workspace, "features", feat_type)
+    fe_names = os.listdir(fe_dir)
+    
+    # Load all single feature files and append to list. 
+    tr_x_list, tr_y_list, tr_na_list = [], [], []
+    te_x_list, te_y_list, te_na_list = [], [], []
+    t1 = time.time()
+    cnt = 0
+    for fe_na in fe_names:
+        print(cnt)
+        bare_na = os.path.splitext(fe_na)[0]
+        fe_path = os.path.join(fe_dir, fe_na)
+        [x, y] = cPickle.load(open(fe_path, 'rb'))
+        
+        if is_in_pianos(fe_na, tr_pianos):
+            tr_x_list.append(x)
+            tr_y_list.append(y)
+            tr_na_list.append("%s.wav" % bare_na)
+        elif is_in_pianos(fe_na, te_pianos):
+            te_x_list.append(x)
+            te_y_list.append(y)
+            te_na_list.append("%s.wav" % bare_na)
+        else:
+            raise Exception("File not in tr_pianos or te_pianos!")
+        cnt += 1
+    
+    # Write out the big file. 
+    out_dir = os.path.join(workspace, "packed_features", feat_type)
+    create_folder(out_dir)
+    tr_packed_feat_path = os.path.join(out_dir, "train.p")
+    te_packed_feat_path = os.path.join(out_dir, "test.p")
+    
+    cPickle.dump([tr_x_list, tr_y_list, tr_na_list], open(tr_packed_feat_path, 'wb'), protocol=cPickle.HIGHEST_PROTOCOL)
+    cPickle.dump([te_x_list, te_y_list, te_na_list], open(te_packed_feat_path, 'wb'), protocol=cPickle.HIGHEST_PROTOCOL)
+    print("Packing time: %s s" % (time.time() - t1,))
+    
+### Scaler related. 
+def compute_scaler(args):
+    """Compute and write out scaler from already packed feature file. Using 
+    scaler in training neural network can speed up training. 
+    """
+    workspace = args.workspace
+    feat_type = args.feat_type
+    
+    # Load packed features. 
+    t1 = time.time()
+    packed_feat_path = os.path.join(workspace, "packed_features", feat_type, "train.p")
+    [x_list, _, _] = cPickle.load(open(packed_feat_path, 'rb'))
+    
+    # Compute scaler. 
+    x_all = np.concatenate(x_list)
+    scaler = preprocessing.StandardScaler(with_mean=True, with_std=True).fit(x_all)
+    print(scaler.mean_)
+    print(scaler.scale_)
+    
+    # Save out scaler. 
+    out_path = os.path.join(workspace, "scalers", feat_type, "scaler.p")
+    create_folder(os.path.dirname(out_path))
+    pickle.dump(scaler, open(out_path, 'wb'))
+    print("Compute scaler finished! %s s" % (time.time() - t1,))
+    
+def scale_on_x_list(x_list, scaler): 
+    """Scale list of ndarray. 
+    """
+    return [scaler.transform(e) for e in x_list]
+    
+### Data pre-processing. 
+def data_to_3d(x_list, y_list, n_concat, n_hop):
+    """Convert data to 3d tensor. 
+    
+    Args: 
+      x_list: list of ndarray, e.g., [(N1, n_freq), (N2, n_freq), ...]
+      y_list: list of ndarray, e.g., [(N1, 88), (N2, 88), ...]
+      n_concat: int, number of frames to concatenate. 
+      n_hop: int, hop frames. 
+      
+    Returns:
+      x_all: (n_samples, n_concat, n_freq)
+      y_all: (n_samples, n_out)
+    """
+    x_all, y_all = [], []
+    n_half = (n_concat - 1) / 2
+    for e in x_list:
+        x3d = mat_2d_to_3d(e, n_concat, n_hop)
+        x_all.append(x3d)
+        
+    for e in y_list:
+        y3d = mat_2d_to_3d(e, n_concat, n_hop)
+        y_all.append(y3d)
+        
+    x_all = np.concatenate(x_all, axis=0)   # (n_samples, n_concat, n_freq)
+    y_all = np.concatenate(y_all, axis=0)   # (n_samples, n_concat, n_out)
+    y_all = y_all[:, n_half, :]     # (n_samples, n_out)
+    return x_all, y_all
+    
+def mat_2d_to_3d(x, agg_num, hop):
+    """Convert data to 3d tensor. 
+    
+    Args: 
+      x: 2darray, e.g., (N, n_in)
+      agg_num: int, number of frames to concatenate. 
+      hop: int, hop frames. 
+      
+    Returns:
+      x3d: 3darray, e.g., (n_samples, agg_num, n_in)
+    """
+    # pad to at least one block
+    len_x, n_in = x.shape
+    if (len_x < agg_num):
+        x = np.concatenate((x, np.zeros((agg_num-len_x, n_in))))
+        
+    # agg 2d to 3d
+    len_x = len(x)
+    i1 = 0
+    x3d = []
+    while (i1+agg_num <= len_x):
+        x3d.append(x[i1:i1+agg_num])
+        i1 += hop
+    x3d = np.array(x3d)
+    return x3d
     
 ### I/O. 
-def prob_to_roll(x, thres):
-    """1. Prediction to binary, 2. 88 note to 128 roll. 
+def txt_to_midi_roll(txt_path, max_fr_len):
+    """Read txt to piano roll. 
+    
+    Args: 
+      txt_path: string, path of note info txt. 
+      max_fr_len: int, should be the same as the number of frames of calculated 
+          feature. 
+          
+    Returns:
+      midi_roll: (n_time, 108)
+    """
+    step_sec = cfg.step_sec
+    
+    with open(txt_path, 'rb') as f:
+        reader = csv.reader(f, delimiter='\t')
+        lis = list(reader)
+
+    midi_roll = np.zeros((max_fr_len, 128))
+    for i1 in xrange(1, len(lis)):
+        # Read a note info from a line. 
+        [onset_time, offset_time, midi_pitch] = lis[i1]
+        onset_time = float(onset_time)
+        offset_time = float(offset_time)
+        midi_pitch = int(midi_pitch)
+        
+        # Write a note info to midi roll. 
+        onset_fr = int(np.floor(onset_time / step_sec))
+        offset_fr = int(np.ceil(offset_time / step_sec)) + 1
+        midi_roll[onset_fr : offset_fr, midi_pitch] = 1
+        
+    return midi_roll
+
+def prob_to_midi_roll(x, thres):
+    """Threshold input probability to binary, then convert piano roll (n_time, 88) 
+    to midi roll (n_time, 108). 
     
     Args:
       x: (n_time, n_pitch)    
@@ -101,11 +363,11 @@ def prob_to_roll(x, thres):
     out[:, pitch_bgn : pitch_bgn + 88] = x_bin
     return out    
 
-def write_roll_to_midi(x, out_path):
-    """Write out from a transcription matrix to midi file. 
+def write_midi_roll_to_midi(x, out_path):
+    """Write out midi_roll to midi file. 
     
     Args: 
-      x: (n_time, n_pitch), piano roll. 
+      x: (n_time, n_pitch), midi roll. 
       out_path: string, path to write out the midi. 
     """
     step_sec = cfg.step_sec
@@ -165,77 +427,6 @@ def write_roll_to_midi(x, out_path):
     out_file = open(out_path, 'wb')
     MyMIDI.writeFile(out_file)
     out_file.close()
-    
-def txt_to_midi_roll(txt_path, max_fr_len):
-    """Read txt to piano roll. 
-    """
-    step_sec = cfg.step_sec
-    
-    with open(txt_path, 'rb') as f:
-        reader = csv.reader(f, delimiter='\t')
-        lis = list(reader)
-
-    midi_roll = np.zeros((max_fr_len, 128))
-    for i1 in xrange(1, len(lis)):
-        # Read a note info from a line. 
-        [onset_time, offset_time, midi_pitch] = lis[i1]
-        onset_time = float(onset_time)
-        offset_time = float(offset_time)
-        midi_pitch = int(midi_pitch)
-        
-        # Write a note info to midi roll. 
-        onset_fr = int(np.floor(onset_time / step_sec))
-        offset_fr = int(np.ceil(offset_time / step_sec)) + 1
-        midi_roll[onset_fr : offset_fr, midi_pitch] = 1
-        
-    return midi_roll
-    
-def load_data(audio_dir, feat_type):
-    """Load data. 
-    
-    Args:
-      audio_dir: string, directorary of audio files. 
-      
-    Returns:
-      x_all: list of 2d array. 
-      y_all: list of 2d array. 
-      na_list: list of names. 
-    """
-    names = os.listdir(audio_dir)
-    fs = cfg.sample_rate
-    pitch_bgn = cfg.pitch_bgn
-    
-    x_all, y_all, na_list = [], [], []
-    cnt = 0
-    for na in names:
-        if os.path.splitext(na)[1] == ".wav":
-            print(na)
-            bare_na = os.path.splitext(na)[0]
-            
-            # Load audio & extract feature. 
-            audio_path = os.path.join(audio_dir, na)
-            (audio, _) = read_audio(audio_path, target_fs=fs)
-            if feat_type == "spectrogram":
-                x = spectrogram(audio)
-            elif feat_type == "logmel":
-                x = logmel(audio)
-            else:
-                raise Exception("Error!")
-                
-            (n_time, n_freq) = x.shape
-            
-            # Load txt to pitches. 
-            txt_path = os.path.join(audio_dir, "%s.txt" % bare_na)
-            roll = txt_to_roll(txt_path, max_fr_len=n_time)
-            y = roll[:, pitch_bgn : pitch_bgn + 88]
-            
-            x_all.append(x.astype(np.float32))
-            y_all.append(y.astype(np.float32))
-            na_list.append(na)
-     
-    return x_all, y_all, na_list
-    
-
     
 ### Evaluation. 
 def tp_fn_fp_tn(p_y_pred, y_gt, thres, average):
@@ -315,155 +506,7 @@ def prec_recall_fvalue(p_y_pred, y_gt, thres, average):
             raise Exception("Incorrect average arg!")
     else:
         raise Exception("Incorrect dimension!")
-        
-def calculate_features(args):
-    dataset_dir = args.dataset_dir
-    workspace = args.workspace
-    feat_type = args.feat_type
-    fs = cfg.sample_rate
-    tr_pianos = cfg.tr_pianos
-    te_pianos = cfg.te_pianos
-    pitch_bgn = cfg.pitch_bgn
-    pitch_fin = cfg.pitch_fin
-    
-    out_dir = os.path.join(workspace, "features", feat_type)
-    create_folder(out_dir)
-    
-    # Calculate features for all 9 pianos. 
-    cnt = 0
-    for piano in tr_pianos + te_pianos:
-        audio_dir = os.path.join(dataset_dir, piano, "MUS")
-        wav_names = [na for na in os.listdir(audio_dir) if na.endswith('.wav')]
-        
-        for wav_na in wav_names:
-            # Read audio. 
-            bare_na = os.path.splitext(wav_na)[0]
-            wav_path = os.path.join(audio_dir, wav_na)
-            (audio, _) = read_audio(wav_path, target_fs=fs)
-            
-            # Calculate feature. 
-            if feat_type == "spectrogram":
-                x = spectrogram(audio)
-            elif feat_type == "logmel":
-                x = logmel(audio)
-            else:
-                raise Exception("Error!")
-            
-            # Read piano roll from txt file. 
-            (n_time, n_freq) = x.shape
-            txt_path = os.path.join(audio_dir, "%s.txt" % bare_na)
-            roll = txt_to_midi_roll(txt_path, max_fr_len=n_time)    # (n_time, 128)
-            y = roll[:, pitch_bgn : pitch_fin]      # (n_time, 88)
-            
-            data = [x, y]
-            out_path = os.path.join(out_dir, "%s.p" % bare_na)
-            print(cnt, out_path, x.shape, y.shape)
-            cPickle.dump(data, open(out_path, 'wb'), protocol=cPickle.HIGHEST_PROTOCOL)
-            cnt += 1
-        
-def is_in_pianos(na, list_of_piano):
-    for piano in list_of_piano:
-        if piano in na:
-            return True
-    return False
-            
-def pack_features(args):
-    workspace = args.workspace
-    feat_type = args.feat_type
-    tr_pianos = cfg.tr_pianos
-    te_pianos = cfg.te_pianos
-    
-    fe_dir = os.path.join(workspace, "features", feat_type)
-    fe_names = os.listdir(fe_dir)
-    
-    # Load single feature file and append to list. 
-    tr_x_list, tr_y_list, tr_na_list = [], [], []
-    te_x_list, te_y_list, te_na_list = [], [], []
-    t1 = time.time()
-    cnt = 0
-    for fe_na in fe_names:
-        print(cnt)
-        bare_na = os.path.splitext(fe_na)[0]
-        fe_path = os.path.join(fe_dir, fe_na)
-        [x, y] = cPickle.load(open(fe_path, 'rb'))
-        
-        if is_in_pianos(fe_na, tr_pianos):
-            tr_x_list.append(x)
-            tr_y_list.append(y)
-            tr_na_list.append("%s.wav" % bare_na)
-        elif is_in_pianos(fe_na, te_pianos):
-            te_x_list.append(x)
-            te_y_list.append(y)
-            te_na_list.append("%s.wav" % bare_na)
-        else:
-            raise Exception("File not in tr_pianos or te_pianos!")
-        cnt += 1
-    
-    # Write out hdf5 file.     
-    out_dir = os.path.join(workspace, "packed_features", feat_type)
-    create_folder(out_dir)
-    tr_packed_feat_path = os.path.join(out_dir, "train.p")
-    te_packed_feat_path = os.path.join(out_dir, "test.p")
-    
-    cPickle.dump([tr_x_list, tr_y_list, tr_na_list], open(tr_packed_feat_path, 'wb'), protocol=cPickle.HIGHEST_PROTOCOL)
-    cPickle.dump([te_x_list, te_y_list, te_na_list], open(te_packed_feat_path, 'wb'), protocol=cPickle.HIGHEST_PROTOCOL)
-    print("Packing time: %s s" % (time.time() - t1,))
-    
-def compute_scaler(args):
-    workspace = args.workspace
-    feat_type = args.feat_type
-    
-    # Load packed features. 
-    t1 = time.time()
-    packed_feat_path = os.path.join(workspace, "packed_features", feat_type, "train.p")
-    [x_list, _, _] = cPickle.load(open(packed_feat_path, 'rb'))
-    
-    # Compute scaler. 
-    x_all = np.concatenate(x_list)
-    scaler = preprocessing.StandardScaler(with_mean=True, with_std=True).fit(x_all)
-    print(scaler.mean_)
-    print(scaler.scale_)
-    
-    # Save out scaler. 
-    out_path = os.path.join(workspace, "scalers", feat_type, "scaler.p")
-    create_folder(os.path.dirname(out_path))
-    pickle.dump(scaler, open(out_path, 'wb'))
-    print("Compute scaler finished! %s s" % (time.time() - t1,))
-    
-def scale_on_x_list(x_list, scaler):
-    return [scaler.transform(e) for e in x_list]
-    
-def data_to_3d(x_list, y_list, n_concat, n_hop):
-    x_all, y_all = [], []
-    n_half = (n_concat - 1) / 2
-    for e in x_list:
-        x3d = mat_2d_to_3d(e, n_concat, n_hop)
-        x_all.append(x3d)
-        
-    for e in y_list:
-        y3d = mat_2d_to_3d(e, n_concat, n_hop)
-        y_all.append(y3d)
-        
-    x_all = np.concatenate(x_all, axis=0)   # (n_clips, n_concat, n_freq)
-    y_all = np.concatenate(y_all, axis=0)   # (n_clips, n_concat, n_out)
-    y_all = y_all[:, n_half, :]     # (n_clips, n_freq)
-    return x_all, y_all
-    
-def mat_2d_to_3d(X, agg_num, hop):
-    # pad to at least one block
-    len_X, n_in = X.shape
-    if (len_X < agg_num):
-        X = np.concatenate((X, np.zeros((agg_num-len_X, n_in))))
-        
-    # agg 2d to 3d
-    len_X = len(X)
-    i1 = 0
-    X3d = []
-    while (i1+agg_num <= len_X):
-        X3d.append(X[i1:i1+agg_num])
-        i1 += hop
-    return np.array(X3d)
-    
+  
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="")
     subparsers = parser.add_subparsers(dest='mode')

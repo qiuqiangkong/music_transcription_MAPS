@@ -113,6 +113,7 @@ def train(args):
         tr_x_list = pp_data.scale_on_x_list(tr_x_list, scaler)
         te_x_list = pp_data.scale_on_x_list(te_x_list, scaler)
 
+    # Debug. 
     if False:
         fig, axs = plt.subplots(2,1, sharex=True)
         axs[0].matshow(tr_x_list[0].T, origin='lower', aspect='auto')
@@ -203,8 +204,12 @@ def train(args):
             pp_data.create_folder(os.path.dirname(save_out_path))
             torch.save(save_out_dict, save_out_path)
             print("Save model to %s" % save_out_path)
+            
+        # Stop training. 
+        if iter == 10001:
+            break
 
-def recognize(args):
+def inference(args):
     cuda = args.use_cuda and torch.cuda.is_available()
     workspace = args.workspace
     model_name = args.model_name
@@ -220,13 +225,6 @@ def recognize(args):
         scale_path = os.path.join(workspace, "scalers", feat_type, "scaler.p")
         scaler = pickle.load(open(scale_path, 'rb'))
         te_x_list = pp_data.scale_on_x_list(te_x_list, scaler)
-
-    if False:
-        fig, axs = plt.subplots(2,1, sharex=True)
-        axs[0].matshow(te_x_list[0].T, origin='lower', aspect='auto')
-        axs[1].matshow(te_x_list[0].T, origin='lower', aspect='auto')
-        plt.show()
-        pause
         
     # Construct model topology. 
     n_concat = 3
@@ -255,7 +253,6 @@ def recognize(args):
     # Data to 3d. 
     n_half = (n_concat - 1) / 2
     for i1 in xrange(len(te_x_list)):
-        print(te_na_list[i1])
         x = te_x_list[i1]   # (n_time, n_freq)
         y = te_y_list[i1]   # (n_time, n_out)
         bare_na = os.path.splitext(te_na_list[i1])[0]
@@ -279,12 +276,13 @@ def recognize(args):
         pred = pred.data.cpu().numpy()
         
         # Threshold and write out predicted piano roll to midi file. 
-        mid_roll = pp_data.prob_to_roll(pred, 0.5)
+        mid_roll = pp_data.prob_to_midi_roll(pred, 0.5)
         out_path = os.path.join(out_midi_dir, "%s.mid" % bare_na)
-        pp_data.write_roll_to_midi(mid_roll, out_path)
+        print("Write out to: %s" % out_path)
+        pp_data.write_midi_roll_to_midi(mid_roll, out_path)
         
-        
-        if False:
+        # Debug. 
+        if True:
             fig, axs = plt.subplots(3,1, sharex=True)
             axs[0].matshow(y.T, origin='lower', aspect='auto')
             axs[1].matshow(pred.T, origin='lower', aspect='auto')
@@ -306,19 +304,19 @@ if __name__ == '__main__':
     parser_train.add_argument('--lr', type=float, default=1e-3)
     parser_train.add_argument('--resume_model_path', type=str, default="")
                     
-    parser_recognize = subparsers.add_parser('recognize')
-    parser_recognize.add_argument('--use_cuda', action='store_true', default=True)
-    parser_recognize.add_argument('--workspace', type=str)
-    parser_recognize.add_argument('--model_name', type=str)
-    parser_recognize.add_argument('--feat_type', type=str, choices=['logmel'])
+    parser_inference = subparsers.add_parser('inference')
+    parser_inference.add_argument('--use_cuda', action='store_true', default=True)
+    parser_inference.add_argument('--workspace', type=str)
+    parser_inference.add_argument('--model_name', type=str)
+    parser_inference.add_argument('--feat_type', type=str, choices=['logmel'])
     
     args = parser.parse_args()
 
     if args.mode == "train":
         args.script_na = pp_data.get_filename(__file__)
         train(args)
-    elif args.mode == "recognize":
+    elif args.mode == "inference":
         args.script_na = pp_data.get_filename(__file__)
-        recognize(args)
+        inference(args)
     else:
         raise Exception("Incorrect argument!")

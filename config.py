@@ -1,7 +1,9 @@
-# dataset_dir = "/vol/vssp/AP_datasets/audio/MAPS"
-# 
-# workspace = "/vol/vssp/msos/qk/workspaces/music_transcription_MAPS"
-
+"""
+Summary:  Configuration file. 
+Author:   Qiuqiang Kong
+Created:  2017.12.12
+Modified: - 
+"""
 sample_rate = 16000
 n_window = 2048
 n_step = 512
