@@ -42,7 +42,7 @@ def glorot_uniform_weights(m):
         m.weight.data = w
         m.bias.data.fill_(0.)    
 
-# Evaluate on batch
+# Evaluate on batch. 
 def eval(model, gen, xs, ys, cuda):
     model.eval()
     pred_all = []
