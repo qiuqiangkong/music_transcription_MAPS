@@ -19,8 +19,8 @@ If you fail to download the dataset, you may download the already calculated log
 2. Run ./runme.sh
 
 ## Transcription result of Chopin Op. 66 Fantasie Impromptu
-Ground truth: ![alt text](https://drive.google.com/open?id=1wYG9wqqGE8HaZoXXx_MFR_lUNuAWd6JC)
-Transcripted: ![alt text](https://drive.google.com/open?id=1-UavS9M1rmYgb1pnCKJJHMjmAkiVEdu-)
+Ground truth: https://drive.google.com/open?id=1wYG9wqqGE8HaZoXXx_MFR_lUNuAWd6JC
+Transcripted: https://drive.google.com/open?id=1-UavS9M1rmYgb1pnCKJJHMjmAkiVEdu-
 ![alt text](https://drive.google.com/file/d/1kPEsA3LIpdXRG9y8zpPb2_NmsqTLGnjP/view)
 
 ## Reference
