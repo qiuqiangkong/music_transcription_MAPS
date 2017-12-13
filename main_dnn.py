@@ -281,7 +281,7 @@ def inference(args):
         print("Write out to: %s" % out_path)
         pp_data.write_midi_roll_to_midi(mid_roll, out_path)
         
-        # Debug. 
+        # Debug plot. 
         if True:
             fig, axs = plt.subplots(3,1, sharex=True)
             axs[0].matshow(y.T, origin='lower', aspect='auto')
@@ -289,8 +289,14 @@ def inference(args):
             binary_pred = (np.sign(pred - 0.5) + 1) / 2
             axs[2].matshow(binary_pred.T, origin='lower', aspect='auto')
             axs[0].set_title("Ground truth")
-            axs[1].set_title("Output")
-            axs[2].set_title("Threshold output")
+            axs[1].set_title("DNN output probability")
+            axs[2].set_title("DNN output probability after thresholding")
+            for j1 in xrange(3):
+                axs[j1].set_ylabel('note index')
+                axs[j1].set_xlabel('frames')
+                axs[j1].xaxis.set_label_coords(1.06, -0.01)
+                axs[j1].xaxis.tick_bottom()
+            plt.tight_layout()
             plt.show()
 
 if __name__ == '__main__':
