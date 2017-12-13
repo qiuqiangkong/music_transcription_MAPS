@@ -19,9 +19,11 @@ If you fail to download the dataset, you may download the already calculated log
 2. Run ./runme.sh
 
 ## Transcription result of Chopin Op. 66 Fantasie Impromptu
-Ground truth: https://drive.google.com/open?id=1wYG9wqqGE8HaZoXXx_MFR_lUNuAWd6JC
-Transcripted: https://drive.google.com/open?id=1-UavS9M1rmYgb1pnCKJJHMjmAkiVEdu-
-![alt text](https://drive.google.com/file/d/1kPEsA3LIpdXRG9y8zpPb2_NmsqTLGnjP/view)
+Real play: [real_play.wav](https://drive.google.com/open?id=1kwhsM2b_CmPfnRgJPqPmtCRn9bIm7qoD)
+Transcripted result: [midi_result.wav](https://drive.google.com/open?id=1HwnVdPZjRxqNE-hum1FLxyZTfjaK8P29)
+
+Visualization of piano roll. 
+![alt text](appendix/MAPS_MUS-chpn_op66_ENSTDkAm.png)
 
 ## Reference
 [1] Sigtia, S., Benetos, E. and Dixon, S., 2016. An end-to-end neural network for polyphonic piano music transcription. IEEE/ACM Transactions on Audio, Speech and Language Processing (TASLP), 24(5), pp.927-939. 
