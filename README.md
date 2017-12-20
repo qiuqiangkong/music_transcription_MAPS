@@ -6,7 +6,7 @@ Author: Qiuqiang Kong (q.kong@surrey.ac.uk)
 A fully connected neural network is used for training followed [1] (implemented using pytorch). Log Mel frequency with 229 bins are used as input feature [2]. 
 
 ## Result
-On the test set, F value around 75% can obtained after a few minutes training. 
+On the test set, frame wise F value around 75% can obtained after a few minutes training. 
 
 ## Dataset
 Download dataset from http://www.tsi.telecom-paristech.fr/aao/en/2010/07/08/maps-database-a-piano-database-for-multipitch-estimation-and-automatic-transcription-of-music/
