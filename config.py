@@ -15,5 +15,6 @@ pitch_bgn = 21
 piano_notes = 88
 pitch_fin = pitch_bgn + piano_notes
 
-tr_pianos = ['AkPnBcht', 'AkPnBsdf', 'AkPnCGdD', 'AkPnStgb', 'SptkBGAm', 'SptkBGCl', 'StbgTGd2']
+# tr_pianos = ['AkPnBcht', 'AkPnBsdf', 'AkPnCGdD', 'AkPnStgb', 'SptkBGAm', 'SptkBGCl', 'StbgTGd2']
+tr_pianos = ['StbgTGd2']
 te_pianos = ['ENSTDkAm', 'ENSTDkCl']

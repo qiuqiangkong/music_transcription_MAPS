@@ -4,13 +4,13 @@ Author:   Qiuqiang Kong
 Created:  2017.12.11
 Modified: 
 """
-from __future__ import print_function
+
 import os
 import numpy as np
 import csv
 import time
 import pickle
-import cPickle
+import pickle
 import h5py
 import argparse
 import matplotlib.pyplot as plt
@@ -64,9 +64,9 @@ def eval(model, gen, xs, ys, cuda):
     
     # Debug. 
     if False:
-        print("tp, fn, fp, tn: %d, %d, %d, %d" % (tp, fn, fp, tn))
+        print(("tp, fn, fp, tn: %d, %d, %d, %d" % (tp, fn, fp, tn)))
         
-    print("prec: %f, recall: %f, fvalue: %f" % (prec, recall, fvalue))
+    print(("prec: %f, recall: %f, fvalue: %f" % (prec, recall, fvalue)))
 
 class Net(nn.Module):
     def __init__(self, n_concat, n_freq, n_out):
@@ -96,15 +96,15 @@ def train(args):
     lr = args.lr
     resume_model_path = args.resume_model_path
     script_na = args.script_na
-    print("cuda:", cuda)
+    print(("cuda:", cuda))
 
     # Load data. 
     t1 = time.time()
     tr_packed_feat_path = os.path.join(workspace, "packed_features", feat_type, "train.p")
     te_packed_feat_path = os.path.join(workspace, "packed_features", feat_type, "test.p")
-    [tr_x_list, tr_y_list, tr_na_list] = cPickle.load(open(tr_packed_feat_path, 'rb'))
-    [te_x_list, te_y_list, te_na_list] = cPickle.load(open(te_packed_feat_path, 'rb'))
-    print("Loading packed feature time: %s s" % (time.time() - t1,))
+    [tr_x_list, tr_y_list, tr_na_list] = pickle.load(open(tr_packed_feat_path, 'rb'))
+    [te_x_list, te_y_list, te_na_list] = pickle.load(open(te_packed_feat_path, 'rb'))
+    print(("Loading packed feature time: %s s" % (time.time() - t1,)))
         
     # Scale. 
     if True:
@@ -128,14 +128,14 @@ def train(args):
     (te_x, te_y) = pp_data.data_to_3d(te_x_list, te_y_list, n_concat, n_hop)
     n_freq = tr_x.shape[-1]
     n_out = tr_y.shape[-1]
-    print(tr_x.shape, tr_y.shape)
+    print((tr_x.shape, tr_y.shape))
     
     # Model. 
     model = Net(n_concat, n_freq, n_out)
     
     if os.path.isfile(resume_model_path):
         # Load weights. 
-        print("Loading checkpoint '%s'" % resume_model_path)
+        print(("Loading checkpoint '%s'" % resume_model_path))
         checkpoint = torch.load(resume_model_path)
         model.load_state_dict(checkpoint['state_dict'])
         iter = checkpoint['iter']
@@ -159,16 +159,16 @@ def train(args):
     eval_te_gen = DataGenerator(batch_size=batch_size, type='test')
     
     iters_per_epoch = len(tr_x) / batch_size
-    print("Iters_per_epoch: %d" % iters_per_epoch)
+    print(("Iters_per_epoch: %d" % iters_per_epoch))
     
     # Train. 
     eps = 1e-8
     tr_time = 0
     for (batch_x, batch_y) in tr_gen.generate(xs=[tr_x], ys=[tr_y]):
-        if iter % (1000) == 0:
-            print("\n--- Evaluation of training set (subset), iteration: %d ---" % iter)
+        if iter % (10000) == 0:
+            print(("\n--- Evaluation of training set (subset), iteration: %d ---" % iter))
             eval(model, eval_tr_gen, [tr_x], [tr_y], cuda)
-            print("--- Evaluation of testing set, iteration: %d ---" % iter)
+            print(("--- Evaluation of testing set, iteration: %d ---" % iter))
             eval(model, eval_te_gen, [te_x], [te_y], cuda)
             print("-----------------------------------------------\n")
         
@@ -190,23 +190,23 @@ def train(args):
         loss.backward()
         optimizer.step()
         
-        if iter % 200 == 0:
-            print("Iter: %d loss: %f" % (iter, loss))
+        if iter % 50 == 0:
+            print(("Iter: %d loss: %f" % (iter, loss)))
         
         iter += 1
         
         # Save model. 
-        if iter % 1000 == 0:
+        if iter % 500 == 0:
             save_out_dict = {'iter': iter, 
                              'state_dict': model.state_dict(), 
                              'optimizer': optimizer.state_dict(), }
             save_out_path = os.path.join(workspace, "models", script_na, feat_type, "md_%diters.tar" % iter)
             pp_data.create_folder(os.path.dirname(save_out_path))
             torch.save(save_out_dict, save_out_path)
-            print("Save model to %s" % save_out_path)
+            print(("Save model to %s" % save_out_path))
             
         # Stop training. 
-        if iter == 10001:
+        if iter == 1000100:
             break
 
 def inference(args):
@@ -218,7 +218,7 @@ def inference(args):
 
     # Load data. 
     te_packed_feat_path = os.path.join(workspace, "packed_features", feat_type, "test.p")
-    [te_x_list, te_y_list, te_na_list] = cPickle.load(open(te_packed_feat_path, 'rb'))
+    [te_x_list, te_y_list, te_na_list] = pickle.load(open(te_packed_feat_path, 'rb'))
         
     # Scale. 
     if True:
@@ -236,7 +236,7 @@ def inference(args):
     # Init the weights of model using trained weights. 
     model_path = os.path.join(workspace, "models", script_na, feat_type, model_name)
     if os.path.isfile(model_path):
-        print("Loading checkpoint '%s'" % model_path)
+        print(("Loading checkpoint '%s'" % model_path))
         checkpoint = torch.load(model_path)
         model.load_state_dict(checkpoint['state_dict'])
     else:
@@ -252,13 +252,13 @@ def inference(args):
         
     # Data to 3d. 
     n_half = (n_concat - 1) / 2
-    for i1 in xrange(len(te_x_list)):
+    for i1 in range(len(te_x_list)):
         x = te_x_list[i1]   # (n_time, n_freq)
         y = te_y_list[i1]   # (n_time, n_out)
         bare_na = os.path.splitext(te_na_list[i1])[0]
         (n_time, n_freq) = x.shape
         
-        zero_pad = np.zeros((n_half, n_freq))
+        zero_pad = np.zeros((int(round(n_half)), int(round(n_freq))))
         x = np.concatenate((zero_pad, x, zero_pad), axis=0)
         x3d = pp_data.mat_2d_to_3d(x, n_concat, te_n_hop)     # (n_time, n_concat, n_freq)
         
@@ -278,7 +278,7 @@ def inference(args):
         # Threshold and write out predicted piano roll to midi file. 
         mid_roll = pp_data.prob_to_midi_roll(pred, 0.5)
         out_path = os.path.join(out_midi_dir, "%s.mid" % bare_na)
-        print("Write out to: %s" % out_path)
+        print(("Write out to: %s" % out_path))
         pp_data.write_midi_roll_to_midi(mid_roll, out_path)
         
         # Debug plot. 
@@ -291,7 +291,7 @@ def inference(args):
             axs[0].set_title("Ground truth")
             axs[1].set_title("DNN output probability")
             axs[2].set_title("DNN output probability after thresholding")
-            for j1 in xrange(3):
+            for j1 in range(3):
                 axs[j1].set_ylabel('note index')
                 axs[j1].set_xlabel('frames')
                 axs[j1].xaxis.set_label_coords(1.06, -0.01)

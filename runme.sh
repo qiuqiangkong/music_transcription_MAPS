@@ -1,6 +1,6 @@
 #!/bin/bash
 # You need to modify this dataset path manually! 
-DATASET_DIR="/vol/vssp/AP_datasets/audio/MAPS"
+DATASET_DIR=""
 
 # Workspace. 
 WORKSPACE=`pwd`
@@ -19,4 +19,3 @@ python main_dnn.py train --workspace=$WORKSPACE --feat_type=logmel
 
 # Inference. 
 python main_dnn.py inference --workspace=$WORKSPACE --model_name=md_10000iters.tar --feat_type=logmel
-
