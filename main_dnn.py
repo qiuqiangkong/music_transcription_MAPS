@@ -10,7 +10,6 @@ import numpy as np
 import csv
 import time
 import pickle
-import pickle
 import h5py
 import argparse
 import matplotlib.pyplot as plt
@@ -165,7 +164,7 @@ def train(args):
     eps = 1e-8
     tr_time = 0
     for (batch_x, batch_y) in tr_gen.generate(xs=[tr_x], ys=[tr_y]):
-        if iter % (10000) == 0:
+        if iter % (1000) == 0:
             print(("\n--- Evaluation of training set (subset), iteration: %d ---" % iter))
             eval(model, eval_tr_gen, [tr_x], [tr_y], cuda)
             print(("--- Evaluation of testing set, iteration: %d ---" % iter))
@@ -190,13 +189,13 @@ def train(args):
         loss.backward()
         optimizer.step()
         
-        if iter % 50 == 0:
+        if iter % 200 == 0:
             print(("Iter: %d loss: %f" % (iter, loss)))
         
         iter += 1
         
         # Save model. 
-        if iter % 500 == 0:
+        if iter % 1000 == 0:
             save_out_dict = {'iter': iter, 
                              'state_dict': model.state_dict(), 
                              'optimizer': optimizer.state_dict(), }
@@ -206,7 +205,7 @@ def train(args):
             print(("Save model to %s" % save_out_path))
             
         # Stop training. 
-        if iter == 1000100:
+        if iter == 10001:
             break
 
 def inference(args):
