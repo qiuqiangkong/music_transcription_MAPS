@@ -1,7 +1,5 @@
 # Automatic music transcription (AMT) of polyphonic piano using deep neural network (Implemented using pytorch). 
 
-## The "Learning the Attack, Decay and Pitch for Piano Music Transcription" code will be pushed soon. 
-
 Author: Qiuqiang Kong (q.kong@surrey.ac.uk)
 
 ## Summary
