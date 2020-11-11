@@ -1,6 +1,8 @@
 # Automatic music transcription (AMT) of polyphonic piano using deep neural network (Implemented using pytorch). 
 
-Author: Qiuqiang Kong (q.kong@surrey.ac.uk)
+## News! Our latest high-resolution piano transcription system is open sourced at: https://github.com/bytedance/piano_transcription
+
+Author: Qiuqiang Kong (qiuqiangkong@gmail.com)
 
 ## Summary
 A fully connected neural network is used for training followed [1] (implemented using pytorch). Log Mel frequency with 229 bins are used as input feature [2]. 
