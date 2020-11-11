@@ -1,6 +1,6 @@
 # Automatic music transcription (AMT) of polyphonic piano using deep neural network (Implemented using pytorch). 
 
-## News! Our latest high-resolution piano transcription system is open sourced at: https://github.com/bytedance/piano_transcription
+## News! Users are suggested to use our latest high-resolution piano transcription system: https://github.com/bytedance/piano_transcription
 
 Author: Qiuqiang Kong (qiuqiangkong@gmail.com)
 
