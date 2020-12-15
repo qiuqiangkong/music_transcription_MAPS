@@ -15,7 +15,7 @@ import csv
 import time
 import h5py
 import pickle
-import cPickle
+import _pickle as cPickle
 import os
 from sklearn import preprocessing
 
@@ -164,15 +164,16 @@ def calculate_features(args):
             
             # Read piano roll from txt file. 
             (n_time, n_freq) = x.shape
-            txt_path = os.path.join(audio_dir, "%s.txt" % bare_na)
+            txt_path = os.path.join(audio_dir, "{0}.txt".format(bare_na))
+            print(txt_path)
             roll = txt_to_midi_roll(txt_path, max_fr_len=n_time)    # (n_time, 128)
             y = roll[:, pitch_bgn : pitch_fin]      # (n_time, 88)
             
             # Write out data. 
             data = [x, y]
-            out_path = os.path.join(out_dir, "%s.p" % bare_na)
-            print(cnt, out_path, x.shape, y.shape)
-            cPickle.dump(data, open(out_path, 'wb'), protocol=cPickle.HIGHEST_PROTOCOL)
+            out_path = os.path.join(out_dir, "{0}.p".format(bare_na))
+            print((cnt, out_path, x.shape, y.shape))
+            cPickle.dump(data, open(out_path, 'wb'), protocol=pickle.HIGHEST_PROTOCOL)
             cnt += 1
         
 ### Pack features. 
@@ -226,9 +227,9 @@ def pack_features(args):
     tr_packed_feat_path = os.path.join(out_dir, "train.p")
     te_packed_feat_path = os.path.join(out_dir, "test.p")
     
-    cPickle.dump([tr_x_list, tr_y_list, tr_na_list], open(tr_packed_feat_path, 'wb'), protocol=cPickle.HIGHEST_PROTOCOL)
-    cPickle.dump([te_x_list, te_y_list, te_na_list], open(te_packed_feat_path, 'wb'), protocol=cPickle.HIGHEST_PROTOCOL)
-    print("Packing time: %s s" % (time.time() - t1,))
+    cPickle.dump([tr_x_list, tr_y_list, tr_na_list], open(tr_packed_feat_path, 'wb'), protocol=pickle.HIGHEST_PROTOCOL)
+    cPickle.dump([te_x_list, te_y_list, te_na_list], open(te_packed_feat_path, 'wb'), protocol=pickle.HIGHEST_PROTOCOL)
+    print(("Packing time: %s s" % (time.time() - t1,)))
     
 ### Scaler related. 
 def compute_scaler(args):
@@ -246,14 +247,14 @@ def compute_scaler(args):
     # Compute scaler. 
     x_all = np.concatenate(x_list)
     scaler = preprocessing.StandardScaler(with_mean=True, with_std=True).fit(x_all)
-    print(scaler.mean_)
-    print(scaler.scale_)
+    print((scaler.mean_))
+    print((scaler.scale_))
     
     # Save out scaler. 
     out_path = os.path.join(workspace, "scalers", feat_type, "scaler.p")
     create_folder(os.path.dirname(out_path))
     pickle.dump(scaler, open(out_path, 'wb'))
-    print("Compute scaler finished! %s s" % (time.time() - t1,))
+    print(("Compute scaler finished! %s s" % (time.time() - t1,)))
     
 def scale_on_x_list(x_list, scaler): 
     """Scale list of ndarray. 
@@ -275,7 +276,7 @@ def data_to_3d(x_list, y_list, n_concat, n_hop):
       y_all: (n_samples, n_out)
     """
     x_all, y_all = [], []
-    n_half = (n_concat - 1) / 2
+    n_half = (n_concat - 1) // 2
     for e in x_list:
         x3d = mat_2d_to_3d(e, n_concat, n_hop)
         x_all.append(x3d)
@@ -329,22 +330,25 @@ def txt_to_midi_roll(txt_path, max_fr_len):
     """
     step_sec = cfg.step_sec
     
-    with open(txt_path, 'rb') as f:
+    with open(txt_path, 'rt') as f:
         reader = csv.reader(f, delimiter='\t')
         lis = list(reader)
 
     midi_roll = np.zeros((max_fr_len, 128))
-    for i1 in xrange(1, len(lis)):
+    for i1 in range(1, len(lis)):
         # Read a note info from a line. 
-        [onset_time, offset_time, midi_pitch] = lis[i1]
-        onset_time = float(onset_time)
-        offset_time = float(offset_time)
-        midi_pitch = int(midi_pitch)
-        
-        # Write a note info to midi roll. 
-        onset_fr = int(np.floor(onset_time / step_sec))
-        offset_fr = int(np.ceil(offset_time / step_sec)) + 1
-        midi_roll[onset_fr : offset_fr, midi_pitch] = 1
+        try:
+            [onset_time, offset_time, midi_pitch] = lis[i1]
+            onset_time = float(onset_time)
+            offset_time = float(offset_time)
+            midi_pitch = int(midi_pitch)
+
+            # Write a note info to midi roll. 
+            onset_fr = int(np.floor(onset_time / step_sec))
+            offset_fr = int(np.ceil(offset_time / step_sec)) + 1
+            midi_roll[onset_fr : offset_fr, midi_pitch] = 1
+        except ValueError:
+            continue
         
     return midi_roll
 
@@ -375,7 +379,7 @@ def write_midi_roll_to_midi(x, out_path):
     def _get_bgn_fin_pairs(ary):
         pairs = []
         bgn_fr, fin_fr = -1, -1
-        for i2 in xrange(1, len(ary)):
+        for i2 in range(1, len(ary)):
             if ary[i2-1] == 0 and ary[i2] == 0:
                 pass
             elif ary[i2-1] == 0 and ary[i2] == 1:
@@ -394,7 +398,7 @@ def write_midi_roll_to_midi(x, out_path):
     # Get (pitch, bgn_frame, fin_frame) triple. 
     triples = []
     (n_time, n_pitch) = x.shape
-    for i1 in xrange(n_pitch):
+    for i1 in range(n_pitch):
         ary = x[:, i1]
         pairs_per_pitch = _get_bgn_fin_pairs(ary)
         if pairs_per_pitch:
@@ -452,7 +456,7 @@ def tp_fn_fp_tn(p_y_pred, y_gt, thres, average):
     elif p_y_pred.ndim == 2:
         tps, fns, fps, tns = [], [], [], []
         n_classes = p_y_pred.shape[1]
-        for j1 in xrange(n_classes):
+        for j1 in range(n_classes):
             (tp, fn, fp, tn) = tp_fn_fp_tn(p_y_pred[:, j1], y_gt[:, j1], thres, None)
             tps.append(tp)
             fns.append(fn)
@@ -490,7 +494,7 @@ def prec_recall_fvalue(p_y_pred, y_gt, thres, average):
         n_classes = p_y_pred.shape[1]
         if average is None or average == 'macro':
             precs, recalls, fvalues = [], [], []
-            for j1 in xrange(n_classes):
+            for j1 in range(n_classes):
                 (prec, recall, fvalue) = prec_recall_fvalue(p_y_pred[:, j1], y_gt[:, j1], thres, average=None)
                 precs.append(prec)
                 recalls.append(recall)
