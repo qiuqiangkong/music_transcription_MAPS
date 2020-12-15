@@ -16,12 +16,12 @@ Download dataset from http://www.tsi.telecom-paristech.fr/aao/en/2010/07/08/maps
 If you fail to download the dataset, you may download the already calculated log Mel feature & ground truth note from here https://drive.google.com/open?id=1OtK4tSrparkYVg_IrQvSDPJRtlwaQ_1k
 
 ## Install requirements
-1. pip install -r requirements.txt
+1. `pip install -r requirements.txt`
 2. Install pytorch following http://pytorch.org/
 
 ## Run
-1. Modify dataset path in runme.sh
-2. Run ./runme.sh
+1. Modify dataset path in `runme.sh`
+2. Run `./runme.sh`
 
 ## Transcription result of Chopin Op. 66 Fantasie Impromptu
 Real play: [real_play.wav](https://drive.google.com/open?id=1kwhsM2b_CmPfnRgJPqPmtCRn9bIm7qoD)
